@@ -3,3 +3,6 @@ GoogleService-Info.plist
 
 react-native-firebase-class1/google-services.json
 react-native-firebase-class1/GoogleService-Info.plist
+
+spaceapp-web-main/.env.local
+spaceapp-web-main/src/config/serviceAccountKey.json
