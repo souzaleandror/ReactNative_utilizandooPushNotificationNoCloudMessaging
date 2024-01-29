@@ -1277,3 +1277,604 @@ Disparar notificações quando um post é criado na Web;
 Mais uma aula finalizada. #Partiu aula 3?
 
 Vamos lá!
+
+#### 29/01/2024
+
+@03-Armazenando tokens na web
+
+@@01
+Projeto da aula anterior
+
+Você pode revisar o seu código e acompanhar o passo a passo do desenvolvimento do nosso projeto e, caso deseje, você pode baixar o projeto MOBILE da aula anterior e o baixar o projeto WEB.
+Bons estudos!
+
+https://github.com/alura-cursos/react-native-firebase-notification/tree/aula2
+
+https://github.com/alura-cursos/spaceapp-web/tree/914d80cbb2c199423be28cb80d2d857146cd8822
+
+@@02
+Armazenando tokens no Firestore
+
+Conseguimos construir nossa API utilizando uma aplicação web feita com o Next afim de disparar notificações para o nosso dispositivo. Contudo, a API que construímos armazena o token diretamente no código.
+Esta configuração é válida para testes iniciais, pois nos permite visualizar se a notificação funciona. Entretanto, na prática, não é o ideal, pois cada vez que uma nova pessoa utiliza nosso aplicativo, teremos que acessar o código da API e adicionar manualmente o token do novo dispositivo e tornar possível o envio de notificações a ele.
+
+O ideal é que este processo seja automático. Existem diversas maneiras de realizar essa automatização, entre as quais destacamos duas:
+
+Criar uma variável para que nossa API armazene os tokens toda vez que um aparelho for registrado.
+Salvar diretamente em um banco de dados.
+Já que estamos utilizando neste curso diversos serviços do Firebase, criaremos nele uma nova coleção para armazenar o token quando o dispositivo for inicializado.
+
+Para isso, voltaremos ao navegador e acessaremos o nosso Firestore por meio do console do Firebase. Em seu interior, veremos que ele possui somente uma coleção, denominada "posts", a qual possui todos os dados dos posts que foram cadastrados e publicados.
+
+Criaremos uma nova coleção para armazenar os tokens. Existem diversas maneiras de armazená-los — uma delas consiste na criação de um arranjo com as strings de todos os tokens.
+
+É importante saber que o *token não é 100% fixo e único*. Vamos abrir o terminal e visualizar o token do nosso dispositivo, que inicia com os caracteres "feT1".
+
+Suponhamos que a pessoa usuária limpou a memória do aplicativo no seu dispositivo, realizando em seguida um novo login. Abriremos lado a lado o nosso terminal e o nosso emulador Android. Por meio deles, seguiremos os seguintes passos, simulando a ação da pessoa usuária:
+
+Acessaremos nossa aplicação por meio do emulador Android.
+Limparemos toda a memória de armazenamento do aplicativo.
+Logaremos novamente na aplicação.
+Neste momento, precisaremos autenticar novamente, digitando o e-mail e a senha. Visualizaremos o terminal e perceberemos que, quando entramos na aplicação, o token foi modificado — agora ele inicia com os caracteres "f_z2".
+
+Temos que identificar cada pessoa usuária com um token. Para isso, criaremos um objeto que conterá um id único para cada uma delas.
+
+Como conseguiremos este id? Por meio da autenticação de login que realizamos na tela inicial da aplicação. Identificaremos cada pessoa usuária específica pelo id único do login e adicionaremos o token como outro atributo, tornando possível o envio de notificações.
+
+O id e o token são atributos diferentes, mas serão utilizados ao mesmo tempo para enviar notificações personalizadas.
+
+Criando
+Por meio do explorador, acessaremos o arquivo firestore.js por meio do caminho "src > servicos". Nele, criaremos uma nova função para salvar um token que será muito similar à salvarPost(). Copiaremos o código desta última e colaremos abaixo dela mesma.
+
+Alteraremos o nome da função colada para salvarToken() e faremos as alterações abaixo.
+
+Dentro do try, ao invés de salvar collection('posts'), salvaremos collection('tokens').
+Dentro do catch, alteraremos o erro do console.log() de 'Erro add post:' para 'Erro ao adicionar token:'.
+export async function salvarPost(data){
+
+    //Código omitido
+
+}
+
+export async function salvarToken(data){
+    try {
+        const result = await firestore().collection('tokens').add(data)
+        return result.id
+    } catch(error){
+        console.log('Erro ao adicionar token:', error)
+        return 'erro'
+    }
+}COPIAR CÓDIGO
+Vamos chamar a nova função em algum lugar. Normalmente a chamamos quando o dispositivo inicia, portanto , vamos chamá-la no interior da função que exibe o token do dispositivo no nosso console. Contudo, esta função se encontra no código principal, ou seja, no index.js da pasta "Principal", dentro do bloco useEffect().
+
+Acessaremos este arquivo pelo caminho "src > telas > Principal".
+
+useEffect(() => {
+    pegarPostsTempoReal(setPosts);
+
+    requestUserPermission();
+
+    pegarToken()
+
+    messaging().oonMessage( async mensagem => {
+        console.log(mensagem)
+    })
+}, [])COPIAR CÓDIGO
+Neste arquivo, acessaremos o interior das chaves da async function pegarToken() que fica acima do useEffect(). Nela, logo abaixo da função getToken(), adicionaremos um await salvarToken() seguido de um bloco de chaves. Dentro deste, adicionaremos duas informações.
+
+ID da pessoa usuária, por meio de um userId que será inicializado com uma string vazia.
+Token da pessoa usuária, por meio de um token que será inicializado com a constante token na qual armazenamos o token por meio de um getToken().
+async function pegarToken(){
+    const token = await messaging().getToken()
+    await salvarToken({
+        userId: '',
+        token:
+    })
+    console.log(token)
+}
+
+useEffect(() => {
+
+    //Código omitido
+
+})COPIAR CÓDIGO
+Se tudo der certo, teremos o salvamento no nosso Firebase.
+
+Recolheremos o id da pessoa usuária utilizando o auth. Vamos importá-lo de config/firebase adicionando o comando abaixo como último item na lista de imports. deste arquivo
+
+import { auth } from "../../config/firebase";COPIAR CÓDIGO
+Para recolher este id, entre o getToken() e o salvarToken() adicionaremos uma const userId que será igual a auth.currentUser.uid.
+
+async function pegarToken(){
+    const token = await messaging().getToken()
+    const userId = auth.currentUser.uid
+    await salvarToken({
+        userId: '',
+        token:
+    })
+    console.log(token)
+}
+
+useEffect(() => {
+
+    //Código omitido
+
+})COPIAR CÓDIGO
+Salvaremos o código e veremos que nada de novo acontece no emulador. Contudo, se acessarmos o console do firebase pelo navegador e atualizarmos a página, será exibida uma nova coleção denominada "tokens". Dentro dela temos tanto o token quanto o id único da pessoa usuária.
+
+Desta forma, podemos armazenar vários tokens, e se quisermos enviar uma mensagem específica para determinado dispositivo, podemos buscar pelo id e disparar a mensagem para o token salvo.
+
+A seguir faremos este processo, integrando-o na nossa API da web. Até lá.
+
+@@03
+Faça como eu fiz: token do dispositivo
+
+Vamos praticar o que aprendemos em aula!
+Uma vez que o Firestore já está configurado no projeto mobile, é possível pegar o token relacionado ao dispositivo, por meio das funções disponíveis da biblioteca do Cloud Messaging. Podemos pegar esse token em dois momentos, quando o aplicativo é carregado pela primeira vez ou quando o usuário faz login no aplicativo.
+
+Para que possa praticar, crie uma função no arquivo firestore.js para salvar o token no Firestore. Dessa forma é possível recuperar eles para disparar as notificações para os usuários.
+
+O token é uma identificação única do dispositivo, gerada pelo FCM (Firebase Cloud Messaging) e nos permite enviar notificações direcionadas a um dispositivo específico. Armazenando esses tokens no Firestore, é possível enviar mensagens personalizadas a dispositivos selecionados. O código ficará dessa forma:
+export async function salvarToken(data){
+  try {
+    const result = await firestore().collection('tokens').add(data)
+    return result.id
+  } catch(error){
+    console.log('Erro ao adicionar token:', error)
+    return 'erro'
+  }
+}COPIAR CÓDIGO
+Você pode conferir o código desta atividade a partir deste commits.
+
+https://github.com/alura-cursos/react-native-firebase-notification/tree/a2b933bf9d8c58dd638284e4006673842ee55bc7
+
+@@04
+Enviando notificações para tokens salvos
+
+Já temos os tokens armazenados no Firestore e conseguimos identificar a qual dispositivo ele pertence, para assim enviar notificações. Para isso, utilizamos o próprio id que recebemos com o login.
+Se abrirmos e observarmos o código da API que pertence à aplicação web (arquivo spaceapp.js), veremos que o armazenamento dos tokens é feito diretamente no código da API. Este processo não é ideal.
+
+Podemos acessar o spaceapp.js por meio do explorador, através do caminho "src > pages > api".
+Agora que temos tudo armazenado no Firestore, consumiremos estes dados e enviaremos as notificações a partir do token disponível neste local, tornando o processo mais dinâmico e automático, eliminando a necessidade de adicionar um novo token sempre que uma nova pessoa usuária utilizar nossa aplicação.
+
+Para isso, poderíamos acessar o arquivo spaceapp.js do nosso aplicativo web, onde seria feito o consumo do dado no Firestore. Alternativamente, podemos aproveitar que existe um arquivo chamado firestore.js na aplicação web. Este arquivo dedica-se a funções que consomem dados do Firestore.
+
+Podemos acessar o arquivo firestore.js por meio do explorador, através do caminho "src > servicos".
+Em seu interior, criaremos uma função para retornar uma lista de tokens, similar ao que fizemos anteriormente, quando consumimos outros dados do Firestore. Abaixo da função salvarPost() criaremos a função async function pegarTokens(), exportando-a adicionando um export à sua esquerda.
+
+No interior do bloco de chaves desta função, adicionaremos um bloco try e catch(). Neste último, passaremos entre parênteses o error e entre chaves um console.log(error) para exibir o erro no terminal.
+
+Entre as chaves do try recuperaremos as informações dos tokens salvos no Firestore. Para isso, criaremos a const tokensRef que será uma referência para os tokens. Ela será igualada ao query() que receberá entre seus parênteses a nossa collection(db, "tokens"), onde db recupera o banco de dados e "tokens" informa qual coleção queremos.
+
+export async function salvarPost(data){
+
+Código omitido
+
+}
+
+export async function pegarTokens(){
+  try {
+        const tokensRef = query(collection(db, "tokens"))
+    } catch(error){
+        console.log(error)
+    }
+}COPIAR CÓDIGO
+Agora que temos nossa referência, recolheremos as informações seguindo a recomendação da documentação e adicionando no try uma const querySnapshot que será igual a getDocs(). Este precisará esperar a chegada da informação, portanto adicionaremos um async à sua esquerda. Dentro de seus parênteses, passaremos a nossa tokensRef.
+
+export async function pegarTokens(){
+  try {
+    const tokensRef = query(collection(db, "tokens"))
+    const querySnapshot = await getDocs(tokensRef)
+    }
+  catch(error){
+    console.log(error)
+  }
+}COPIAR CÓDIGO
+Desta forma, um snapshot (captura rápida) das informações será feito e armazenado na nossa variável, o que nos dará acesso aos tokens salvos.
+
+Se verificarmos o Firestore, ele retornará um objeto constituído do id e do token do dispositivo. Contudo, queremos apenas os tokens na lista, por isso faremos um filtro que retornará apenas as strings deles. Para isso, abaixo da const querySnapshot criaremos a variável tokens, que receberá inicialmente um arranjo vazio.
+
+A partir do querySnapshot, percorreremos e filtraremos todos os elementos obtidos pelo arranjo, para retornar somente os tokens. Para isso, abaixo da const tokens adicionaremos um querySnapshot.forEach().
+
+Este forEach chamará cada objeto recolhido de "documento", assim como no Firestore — para isso, adicionaremos entre seus parênteses um doc envolvido pelos parênteses de uma função seta () => {}. Entre as chaves desta, recolheremos o tokens.push(), adicionando entre parênteses somente o doc.data().token.
+
+export async function pegarTokens(){
+  try {
+    const tokensRef = query(collection(db, "tokens"))
+    const querySnapshot = await getDocs(tokensRef)
+    const tokens = []
+    querySnapshot.forEach((doc) => {
+      tokens.push(doc.data().token)
+    })
+  }
+  catch(error){
+    console.log(error)
+  }
+}COPIAR CÓDIGO
+Acessando o Firestore por meio do navegador, verificaremos que estamos salvando esta informação como token. Ele tentará acessá-la no console do Firebase e retornar apenas a string do token.
+
+Voltaremos ao arquivo firestore.js do aplicativo web, no qual finalizaremos o bloco try com um return tokens. Qualquer parte do código que chamar esta função, selecionará no banco de dados e retornará uma lista com os tokens.
+
+export async function pegarTokens(){
+  try {
+    const tokensRef = query(collection(db, "tokens"))
+    const querySnapshot = await getDocs(tokensRef)
+    const tokens = []
+    querySnapshot.forEach((doc) => {
+      tokens.push(doc.data().token)
+    })
+    return tokens
+  }
+  catch(error){
+    console.log(error)
+  }
+}COPIAR CÓDIGO
+Para testar, abriremos o arquivo spaceapp.js. Em seu interior, abaixo de const { title, body, image }, criaremos a variável const tokens que será igual a await pegarTokens().
+
+export default async function handler(req, res){
+    const { title, body, image } = req.body
+
+    const tokens = await pegarTokens()
+
+//Código omitido
+
+}COPIAR CÓDIGO
+Ao digitar "pegarTokens" e pressionar "Enter", o sistema fará a importação automática da função, adicionando o código abaixo no final da lista de imports.
+
+import { pegarTokens } from '../../servicos/firestore';COPIAR CÓDIGO
+Já que temos acesso aos nossos tokens, vamos adicionar um console.log(tokens) para imprimir no terminal e verificar se está funcionando conforme o esperado.
+
+export default async function handler(req, res){
+    const { title, body, image } = req.body
+
+    const tokens = await pegarTokens()
+    console.log(tokens)
+
+//Código omitido
+
+}COPIAR CÓDIGO
+Vamos apagar a string no interior do vetor tokens, já que o retorno do console.log(tokens) será um vetor de tokens.
+
+export default async function handler(req, res){
+
+//Código omitido
+
+  const mensagem = {
+
+// Código omitido
+
+    tokens: ['fymAfwTZRMyfanSMZ_hRPx:APA91bGfQi_x-VFhAOO0Ly8BjJznceBpmCZUg7a65d3-iDTY8PDUfjlumpU6jV_gAZH50VrLxGWG-DN__1sbT-O5vH3F56SuroWPVsZW73M3rb4M94WOvePQq0arqKdc9AbQLnDgNWwN']
+  };
+
+//Código omitido
+
+}COPIAR CÓDIGO
+Em seu lugar, adicionaremos um tokens que contém o vetor (ou seja, uma lista) de tokens.
+
+export default async function handler(req, res){
+
+//Código omitido
+
+  const mensagem = {
+
+// Código omitido
+
+    tokens: tokens
+  };
+
+//Código omitido
+
+}COPIAR CÓDIGO
+Salvaremos o código e acessaremos a aplicação web no navegador para ver se funciona. Utilizaremos o endereço abaixo.
+
+localhost:3000
+Para testar, criaremos uma nova postagem. Copiaremos o endereço de uma das imagens na tela e clicaremos no botão "+" no canto inferior direito.
+
+A tela de novo post será aberta, onde preencheremos os campos conforme abaixo:
+
+no Título, digitaremos "Teste"
+no Link da imagem, colaremos o link da imagem copiada
+Os outros campos serão deixados em branco. Clicaremos em "Salvar" e veremos o novo post criado na tela. Voltaremos ao código e veremos o que aconteceu.
+
+No terminal, será exibido o vetor que possui o único token salvo no Firestore e logo abaixo dele a mensagem abaixo.
+
+Notificacao enviada com sucesso!
+Isso significa que conseguimos acessar o banco de dados, recuperar os tokens e enviar uma mensagem. Toda vez que um novo token for registrado, a nossa lista será atualizada dinamicamente.
+
+Vamos conferir em nosso dispositivo se a mensagem chegou. Para isso, minimizaremos o código da aplicação web e acessaremos o código da aplicação mobile, cujo terminal exibirá a mensagem recebida. Ela possui um "title": "Teste" e não possui nenhum body, por isso nenhum corpo é exibido na mensagem.
+
+LOG {"collapseKey": "com.spaceapp", "data": {}, "from": "369507489110", messageId": "0:1674220477365003%aa773528aa773528", "notification": {"android": {}, "title": "Teste"}, "sentTime": "1674220477356", "ttl": 2419200}
+Neste vídeo recuperamos as informações no Firestore. Contudo, se observarmos o nosso código Mobile que salva essas informações — ou seja, a função salvarToken() — veremos que existe um detalhe que poderá causar problemas no futuro: não verificamos se o *token já existe e já está salvo no Firestore*.
+
+Se reiniciarmos a aplicação, veremos que a função salvarToken() será chamada novamente. Já sabemos que ela será chamada toda vez que a aplicação iniciar.
+
+Acessaremos o banco de dados do Firebase por meio do navegador e veremos que existem dois *tokens salvos que são exatamente iguais*.
+
+Queremos evitar redundâncias como esta para evitar consumir excessivamente o banco de dados.
+
+A seguir, faremos a correção deste problema.
+
+@@05
+Faça como eu fiz: recuperar tokens
+
+Vamos praticar!
+Com os tokens salvos no Firestore, é possível obtê-los no servidor web que foi criado para enviar as notificações. Isso pode ser feito utilizando as APIs do Firestore para recuperar os tokens, de acordo com os critérios específicos que são necessários para enviar as notificações. Para isso, faça o seguinte:
+
+Crie uma função no arquivo firestore.js que busque os tokens salvos;
+Desenvolva a função que busque todos os tokens armazenados e os retorne como um array de strings.
+
+Criamos uma função para recuperar os tokens de forma automática. Dessa forma, sempre que um novo dispositivo entrar na aplicação, ele receberá notificações sem a necessidade de adição manual. Então você irá conseguir enviar notificações para todos os dispositivos de forma automática e segura. O código da função ficará assim:
+export async function pegarTokens(){
+  try {
+    const ref = query(collection(db, "tokens"))
+    const querySnapshot = await getDocs(ref)
+    const tokens = []
+    querySnapshot.forEach(( doc ) => {
+      tokens.push(doc.data().token)
+    })
+    return tokens
+  }
+  catch(error){
+    console.log(error)
+    return 'error'
+  }
+}COPIAR CÓDIGO
+A função pegarTokens tem como objetivo recuperar tokens do banco de dados. Para isso, ela inicializa o Firestore com a biblioteca do Firebase e acessa a collection "tokens". Em seguida, utiliza o método forEach para percorrer cada documento na collection e adicionar cada token a uma lista de tokens. E depois, essa lista será retornada.
+
+Você pode conferir o código desta atividade a partir deste commit.
+
+https://github.com/alura-cursos/spaceapp-web/tree/85c813bb2e82f1d80622a7ad1994c5381418ba6e
+
+@@06
+Lidando com duplicações de tokens
+
+Percebemos através do console do Firebase que, a cada reinicialização da aplicação, um novo documento é criado dentro da coleção "tokens" com as mesmas informações de userId e de token.
+Este processo não é o ideal, pois toda vez que alguém abrir o aplicativo, ele registrará no nosso Firestore. O ideal é realizar verificações antes do registro.
+
+Podemos verificar se esta pessoa usuária já está salva no "tokens" ou atualizar o token. Anteriormente, vimos que se desinstalamos ou limpamos o aplicativo, um novo token seria gerado. Portanto, mesmo se tratando do mesmo dispositivo, o token muda.
+
+Precisamos atualizar a informação específica de cada pessoa usuária no campo token. Para isso, alteraremos o código que salva o token no Firestore.
+
+Voltaremos ao código da aplicação Mobile, no arquivo firestore.js. Antes de salvar qualquer informação por meio da função salvarToken(), precisaremos verificar se o *token já existe e atualizá-lo caso ele exista*.
+
+Para isso, dentro de salvarToken(), na primeira linha do bloco try, acima da const result, adicionaremos uma const tokens para recolher todos os tokens salvos no Firestore. Ela receberá um await firestore().collection('tokens') que recolhe os documentos da coleção "tokens".
+
+export async function salvarToken(data){
+    try {
+        const tokens = await firestore().collection('tokens')
+        const result = await firestore().collection('tokens').add(data)
+        return result.id
+    } catch(error){
+        console.log('Erro ao adicionar token:', error)
+        return 'erro'
+    }
+}COPIAR CÓDIGO
+Poderíamos utilizar um get para recolher tudo, mas esse procedimento não é o ideal nesse momento. Em vez disso, aplicaremos filtros oferecidos pelo próprio Firebase. Dessa forma, ao invés de armazenar todos os tokens dentro da variável tokens, armazenaremos apenas o token existente.
+
+À direita de collection('tokens'), adicionaremos o filtro .where() que receberá entre parênteses o comando 'userId', '==', data.userId para verificar se o campo userId é igual ao data.userId.
+
+Se ele encontrar, faremos um .get(), adicionando-o à direita do where().
+
+export async function salvarToken(data){
+    try {
+        const tokens = await firestore().collection('tokens').where('userId', '==', data.userId).get()
+        const result = await firestore().collection('tokens').add(data)
+        return result.id
+    } catch(error){
+        console.log('Erro ao adicionar token:', error)
+        return 'erro'
+    }
+}COPIAR CÓDIGO
+Vamos entender o código? Ele diz que vamos acessar o Firestore, na coleção "tokens", onde recolheremos o token somente no caso em que o id da pessoa usuária for igual ao id do dispositivo acionado. Neste caso, ele retornará essa informação e a salvará na variável tokens.
+
+Com isso em mente, abaixo da const tokens faremos um if conforme abaixo.
+
+if(tokens.docs.length > 0){
+    await firestore().collection('tokens').doc(tokens.docs[0].id)
+}COPIAR CÓDIGO
+Esta condicional verifica se tokens.docs.length é maior que 0 — ou seja, se há algo dentro dos documentos da variável tokens. Se houver, significa que encontramos uma pessoa usuária que possui o userId. A partir disso, atualizaremos o token.
+
+Entre os parênteses de doc() especificamos qual documento queremos atualizar. Como já o temos salvo na variável tokens, podemos recolher o primeiro documento escrevendo tokens.docs[0].
+
+Retornaremos somente a primeira posição da lista, pois o ideal é que haja somente uma informação correspondente à nossa busca. Já o id corresponde ao id do documento.
+
+Com o id em mãos, adicionamos o .update() para atualizar a informação, informando entre seus parênteses o data. O próprio Firebase lida com a verificação de qual campo será modificado e se a atualização é realmente necessária. Caso haja uma alteração no token do dispositivo por qualquer motivo, o Firebase fará essa atualização.
+
+export async function salvarToken(data){
+    try {
+        const tokens = await firestore().collection('tokens').where('userId', '==', data.userId).get()
+        if(tokens.docs.length > 0){
+            await firestore().collection('tokens').doc(tokens.docs[0].id).update(data)
+        }
+        const result = await firestore().collection('tokens').add(data)
+        return result.id
+    } catch(error){
+        console.log('Erro ao adicionar token:', error)
+        return 'erro'
+    }
+}COPIAR CÓDIGO
+Existem vários motivos pelos quais um token pode ser alterado no dispositivo. Vimos que um deles é a atualização do cache. Além disso, é possível que a Google trabalhe em atualizações que também modifiquem estes tokens.
+
+Apesar de não ser possível controlarmos estas mudanças, podemos amenizar os problemas com o envio de notificações através do update(), garantindo que o dispositivo as receba.
+
+Dentro do bloco if, abaixo da nossa lógica, retornaremos o id do primeiro documento da lista por meio de um return tokens.docs[0].id.
+
+if(tokens.docs.length > 0){
+    await firestore().collection('tokens').doc(tokens.docs[0].id)
+    return tokens.docs[0].id
+}COPIAR CÓDIGO
+Desta forma, ele não salvará nem criará um token. Caso o if retorne que o tamanho do arranjo é igual a, significa que ele está vazio e não haverá nada a atualizar. Neste caso, será criado um novo dispositivo.
+
+Abaixo temos o código completo da função.
+
+export async function salvarToken(data){
+    try {
+        const tokens = await firestore().collection('tokens').where('userId', '==', data.userId).get()
+        if(tokens.docs.length > 0){
+            await firestore().collection('tokens').doc(tokens.docs[0].id).update(data)
+            return tokens.docs[0].id
+        }
+        const result = await firestore().collection('tokens').add(data)
+        return result.id
+    } catch(error){
+        console.log('Erro ao adicionar token:', error)
+        return 'erro'
+    }
+}COPIAR CÓDIGO
+Salvaremos o código. Para testá-lo, acessaremos o console do Firebase no navegador e excluiremos todas as informações sobre tokens. Para isso, seguiremos os passos abaixo:
+
+na coluna à esquerda, clicaremos na coleção "tokens";
+na coluna central, clicaremos no token a ser excluído;
+na coluna à direita, clicaremos no botão com três pontos na vertical e selecionaremos "Excluir documento".
+na caixa de mensagem que será aberta, selecionaremos o botão "Começar a exclusão".
+Faremos o mesmo procedimento para o outro token da coleção. Desta forma, a coleção "tokens" ficará vazia.
+
+Voltaremos ao código da aplicação web e reiniciaremos a aplicação. No emulador, seremos logados automaticamente. Se voltarmos ao console do Firebase e olharmos a coleção, um novo token aparecerá para o nosso dispositivo, assim como esperado.
+
+Voltando ao código e ao emulador, reiniciaremos novamente a aplicação para verificar se um novo token será criado. Voltando ao console do Firebase, vamos atualizá-lo e assim perceber que não foi gerado um novo documento, confirmando que nosso código funcionou.
+
+Agora precisamos testar no nosso console se, caso modifiquemos o token do nosso dispositivo, o campo token será alterado, sem a criação de um novo. Para isso, memorizaremos os primeiros caracteres do token atual e voltaremos ao código da aplicação web.
+
+Acessaremos o emulador, onde fecharemos a aplicação e limparemos novamente o cache e o armazenamento. Fecharemos todas as abas e inicializaremos nossa aplicação pelo terminal.
+
+Nesse momento, precisaremos autorizar tudo e logar novamente com nosso e-mail e senha. Ao entrarmos na aplicação, veremos no terminal que um novo token foi gerado, com iniciais diferentes.
+
+Voltando ao console do Firebase, veremos que o campo token foi atualizado conforme o esperado, substituindo o token antigo pelo novo, sem gerar outro documento.
+
+Caso ocorra algo no Firebase que modifique o token de mensagem, teremos o campo atualizado na nossa coleção de tokens.
+
+Nossa aplicação está mais segura em relação a estes dados e não consumiremos de maneira excessiva o armazenamento do Firestore. Por meio da nossa API, conseguimos pegar as informações do token através da nossa aplicação web e disparar e-mails para todos os dispositivos cadastrados.
+
+Feito isso, falta exibir as notificações no nosso dispositivo. Estamos realizando tudo no console, o que já é interessante. Contudo, precisamos mostrar visualmente essas informações.
+
+A seguir, modificaremos o ícone de sino para exibir uma contagem de notificações recebidas e exibiremos as notificações na página de notificações que será acessada através de um clique neste sino.
+
+Aplicaremos também um novo conceito: o Background, com o qual nosso dispositivo receberá mensagens mesmo se estiver completamente fechado ou com a tela desligada.
+
+Nos vemos lá!
+
+@@07
+Faça como eu fiz: recuperar os tokens
+
+Vamos praticar!
+Conforme abordamos na videoaula, é preciso adicionar um certo nível de verificação para evitar que nosso banco de dados salve tokens de forma duplicada. Para isso, sempre que for salvar um token é importante verificar se ele já não está salvo lá, consultando o id do usuário.
+
+Por isso, modifique a sua função salvarToken para fazer essa verificação antes de salvar.
+
+Se tiver alguma dúvida, procure nossa comunidade no Discord para compartilhar e interagir com outras pessoas, ou o fórum do curso.
+
+A modificação da função salvarToken ficará assim:
+export async function salvarToken(data){
+  try {
+    const tokens = await firestore().collection('tokens').where('userId', '==', data.userId).get()
+    if(tokens.docs.length > 0){
+      await firestore().collection('tokens').doc(tokens.docs[0].id).update(data)
+      return tokens.docs[0].id
+    }
+    const result = await firestore().collection('tokens').add(data)
+    return result.id
+  } catch(error){
+    console.log('Erro ao adicionar token:', error)
+    return 'erro'
+  }
+}COPIAR CÓDIGO
+Você pode conferir o código desta atividade a partir deste commits.
+
+https://github.com/alura-cursos/react-native-firebase-notification/tree/b88df40bdb8be6950c936a566cebc3d890e6d9e0
+
+@@08
+Sobre os tokens
+
+Durante a aula, aprendemos sobre como utilizar os tokens na nossa aplicação e as funcionalidades que podem ser adicionadas com os mesmos. Considerando o que foi apresentado, marque a alternativa correta:
+
+O token gerado é único por usuário e não se altera ao longo do tempo.
+ 
+O token pode ser alterado por alguns motivos, como quando uma pessoa desinstala e instala novamente o nosso App ou por alguma atualização interna do Firebase. Por isso uma boa prática é sempre atualizar o seu valor no Firestore quando o usuário faz login no App.
+Alternativa correta
+O token do dispositivo é gerado a partir do e-mail e senha cadastrados no Firebase.
+ 
+O token é uma verificação única por aplicativo e dispositivo, não tendo a necessidade de precisar de um login com e-mail e senha para conseguir gerá-lo.
+Alternativa correta
+É necessário instalar uma biblioteca adicional para armazenar os tokens do dispositivo na collection do Firestore.
+ 
+Não há a necessidade de instalar uma biblioteca adicional para armazenar os tokens no Firestore, com a própria biblioteca do firebase já é possível fazer isso.
+Alternativa correta
+Armazenar os tokens do dispositivo na collection do Firestore é uma boa forma de garantir que as notificações enviadas sejam personalizadas para cada dispositivo.
+ 
+Isso aí! Armazenar os tokens no Firestore permite recuperar tokens específicos para enviar notificações personalizadas e a sincronização em tempo real mantém os tokens atualizados mesmo com alterações.
+Parabéns, você acertou!
+
+@@09
+Desafio: envio de notificações para dispositivos específicos
+
+Chegou a hora do desafio!!!
+Nas aulas criamos uma função que pega os tokens de todos os usuários da nossa aplicação do SpaceApp. Mas e se quiséssemos mandar uma notificação para um grupo de usuários específicos? Então é um desafio para você!
+
+Crie uma função na aplicação Web que retorne apenas os tokens referentes a uma lista de IDs dos usuários;
+Use essa lista de tokens para enviar as notificações.
+Queremos ver o resultado do seu desafio! Compartilhe nas suas redes sociais e marque a gente. Ou se preferir compartilha na nossa comunidade do Discord.
+
+Abaixo tem um exemplo de função que retorna essa lista com base no userId:
+export async function pegarTokensPorUserId(userIds){
+  try {
+    const tokensRef = query(collection(db, "tokens"))
+    const querySnapshot = await getDocs(tokensRef)
+    const tokens = []
+    querySnapshot.forEach((doc) => {
+      if(userIds.includes(doc.data().userId)){
+        tokens.push(doc.data().token)
+      }
+    })
+    return tokens
+  }
+  catch(error){
+    console.log(error)
+  }
+}COPIAR CÓDIGO
+E para usá-la na nossa API, podemos chamá-la da seguinte maneira:
+
+import { admin } from '../../config/firebaseAdmin';
+import { pegarTokens, pegarTokensPorUserId } from '../../servicos/firestore';
+
+export default async function handler(req, res){
+
+  const { title, body, image } = req.body
+
+  const tokens = await pegarTokensPorUserId(['X7Tgmqvn9aPKCSmbF34jNFQEJTH2'])
+
+  const message = {
+    android: {
+      notification: {
+        image: image,
+        color: '#0A2E5B',
+        title: title,
+        body: body
+      }
+    },
+    tokens: tokens
+  };
+
+  try {
+    await admin.messaging().sendMulticast(message)
+    console.log('Notificacao enviada com sucesso!')
+    res.status(200).json({
+      status: 'Notificacao enviada com sucesso!'
+    })
+  }
+  catch(error){
+    console.log(error)
+    res.status(400).json({
+      status: 'Erro ao enviar'
+    })
+  }
+}COPIAR CÓDIGO
+Assim, a nossa API enviaria notificações somente para alguns usuários específicos, no exemplo fornecido seria para apenas um único usuário.
+
+@@10
+O que aprendemos?
+
+Parabéns! Você finalizou a terceira aula e nela você aprendeu:
+Como utilizar os tokens na sua aplicação;
+Desenvolver funções para salvar os tokens e para recuperar os mesmos;
+Como utilizar uma aplicação web para enviar as notificações;
+Como enviar notificações para dispositivos específicos.
